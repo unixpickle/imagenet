@@ -18,7 +18,8 @@ const (
 	BatchSize = 30
 
 	ValidationSize   = 0.1
-	ValidationSubset = 100
+	ValidationSubset = 50
+	SubTrainingSize  = 250
 )
 
 func main() {
@@ -53,10 +54,16 @@ func main() {
 	validation := samples.Subset(0, int(float64(samples.Len())*ValidationSize))
 	training := samples.Subset(validation.Len(), samples.Len())
 
+	subTraining := training.Copy().Subset(0, SubTrainingSize).(SampleSet)
+
 	var epoch int
 	log.Println("Training...")
-	sgd.SGDInteractive(gradienter, training, StepSize, BatchSize, func() bool {
+	sgd.SGDInteractive(gradienter, subTraining, StepSize, BatchSize, func() bool {
 		log.Printf("Epoch: %d; subset cost: %f", epoch, randomSubsetCost(validation, network))
+		s := training.Copy()
+		sgd.ShuffleSampleSet(s)
+		s = s.Subset(0, SubTrainingSize)
+		copy(subTraining, s.(SampleSet))
 		return true
 	})
 
