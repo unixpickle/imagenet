@@ -13,9 +13,9 @@ const (
 	MeanSampleCount = 100
 )
 
-var ConvFilterCounts = []int{48, 64, 128, 128, 128}
-var PoolingLayers = map[int]bool{1: true, 2: true, 3: true, 4: true}
-var HiddenSizes = []int{4096, 4096}
+var ConvFilterCounts = []int{48, 64, 128, 128, 128, 128}
+var PoolingLayers = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true}
+var HiddenSizes = []int{2048, 2048}
 
 func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, error) {
 	data, err := ioutil.ReadFile(path)

@@ -14,7 +14,7 @@ const (
 	ImageDirArg = 1
 	OutNetArg   = 2
 
-	StepSize  = 1e-2
+	StepSize  = 1e-3
 	BatchSize = 30
 
 	ValidationSize   = 0.1
@@ -46,7 +46,7 @@ func main() {
 			Learner:       network.BatchLearner(),
 			CostFunc:      &neuralnet.DotCost{},
 			MaxBatchSize:  2,
-			MaxGoroutines: 2,
+			MaxGoroutines: 3,
 		},
 	}
 
