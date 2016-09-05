@@ -59,12 +59,15 @@ func main() {
 	var epoch int
 	log.Println("Training...")
 	sgd.SGDInteractive(gradienter, subTraining, StepSize, BatchSize, func() bool {
-		log.Printf("Epoch: %d; subset cost: %f", epoch, randomSubsetCost(validation, network))
-		epoch++
 		s := training.Copy()
 		sgd.ShuffleSampleSet(s)
 		s = s.Subset(0, SubTrainingSize)
 		copy(subTraining, s.(SampleSet))
+
+		log.Printf("Epoch=%d validation=%f training=%f", epoch,
+			randomSubsetCost(validation, network),
+			randomSubsetCost(subTraining, network))
+		epoch++
 		return true
 	})
 
