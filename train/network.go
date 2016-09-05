@@ -16,6 +16,7 @@ const (
 var ConvFilterCounts = []int{48, 64, 128, 128, 128, 128}
 var PoolingLayers = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true}
 var HiddenSizes = []int{2048, 2048}
+var HiddenDropoutKeep = []float64{0.5, 0.8}
 
 func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, error) {
 	data, err := ioutil.ReadFile(path)
@@ -64,7 +65,11 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 	}
 
 	inputVecSize := layerSize * layerSize * layerDepth
-	for _, hiddenSize := range HiddenSizes {
+	for i, hiddenSize := range HiddenSizes {
+		net = append(net, &neuralnet.DropoutLayer{
+			Training:        true,
+			KeepProbability: HiddenDropoutKeep[i],
+		})
 		net = append(net, &neuralnet.DenseLayer{
 			InputCount:  inputVecSize,
 			OutputCount: hiddenSize,
