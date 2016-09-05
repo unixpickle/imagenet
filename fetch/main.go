@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -15,6 +17,8 @@ const (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	if len(os.Args) != 4 {
 		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "wnids img_count dir_out")
 		fmt.Fprintln(os.Stderr, "  wnids      file with space-separated wnids")
