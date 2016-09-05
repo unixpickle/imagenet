@@ -69,6 +69,7 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 			InputCount:  inputVecSize,
 			OutputCount: hiddenSize,
 		})
+		net = append(net, &neuralnet.ReLU{})
 		inputVecSize = hiddenSize
 	}
 	net = append(net, &neuralnet.DenseLayer{
