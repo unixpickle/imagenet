@@ -16,7 +16,7 @@ const (
 
 	StepSize            = 1e-5
 	BatchNormStabilizer = 1e-3
-	BatchSize           = 16
+	BatchSize           = 12
 	ValidationSize      = 0.1
 
 	MaxCache = BatchSize * 64 * 64 * 128

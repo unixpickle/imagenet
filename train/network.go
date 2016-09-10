@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/unixpickle/batchnorm"
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
@@ -41,6 +42,7 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 		layerDepth = filterCount
 		layerSize = layer.OutputWidth()
 		net = append(net, layer)
+		net = append(net, batchnorm.NewLayer(filterCount))
 		if PoolingLayers[i] {
 			poolLayer := &neuralnet.MaxPoolingLayer{
 				XSpan:       2,
