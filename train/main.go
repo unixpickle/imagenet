@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/unixpickle/autofunc"
+	"github.com/unixpickle/num-analysis/linalg"
 	"github.com/unixpickle/sgd"
 	"github.com/unixpickle/weakai/neuralnet"
 )
@@ -90,5 +92,13 @@ func randomSubsetCost(s sgd.SampleSet, n neuralnet.Network) float64 {
 		sgd.ShuffleSampleSet(s)
 		s = s.Subset(0, BatchSize)
 	}
-	return neuralnet.TotalCost(&neuralnet.DotCost{}, n, s)
+	var inVec linalg.Vector
+	var outVec linalg.Vector
+	for i := 0; i < s.Len(); i++ {
+		sample := s.GetSample(i).(neuralnet.VectorSample)
+		inVec = append(inVec, sample.Input...)
+		outVec = append(outVec, sample.Output...)
+	}
+	out := n.BatchLearner().Batch(&autofunc.Variable{Vector: inVec}, s.Len())
+	return neuralnet.DotCost{}.Cost(outVec, out).Output()[0]
 }
