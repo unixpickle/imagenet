@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/unixpickle/batchnorm"
 	"github.com/unixpickle/sgd"
 	"github.com/unixpickle/weakai/neuralnet"
 )
@@ -17,7 +16,7 @@ const (
 
 	StepSize            = 1e-5
 	BatchNormStabilizer = 1e-3
-	BatchSize           = 128
+	BatchSize           = 16
 	ValidationSize      = 0.1
 
 	MaxCache = BatchSize * 64 * 64 * 128
@@ -46,7 +45,7 @@ func main() {
 		Gradienter: &neuralnet.BatchRGradienter{
 			Learner:       network.BatchLearner(),
 			CostFunc:      &neuralnet.DotCost{},
-			MaxBatchSize:  1,
+			MaxBatchSize:  BatchSize,
 			MaxGoroutines: 1,
 		},
 		Momentum: 0.9,
@@ -69,7 +68,6 @@ func main() {
 			log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
 				validationCost, newCost, randomSubsetCost(lastBatch, network))
 		}
-		batchnorm.BatchNorm(network, s, BatchNormStabilizer, MaxCache)
 		lastBatch = s.Copy()
 		miniBatch++
 		return true

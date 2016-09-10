@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/unixpickle/batchnorm"
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
@@ -12,8 +11,8 @@ const (
 	MeanSampleCount = 100
 )
 
-var ConvFilterCounts = []int{48, 64, 128, 128, 128, 128}
-var PoolingLayers = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true}
+var ConvFilterCounts = []int{48, 64, 96, 128, 128, 128}
+var PoolingLayers = map[int]bool{0: true, 1: true, 2: true, 3: true, 4: true, 5: true}
 var HiddenSizes = []int{2048, 2048}
 
 func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, error) {
@@ -24,9 +23,7 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 		return nil, err
 	}
 
-	net := neuralnet.Network{
-		batchnorm.NewLayer(InputImageSize * InputImageSize * 3),
-	}
+	net := neuralnet.Network{}
 
 	layerSize := InputImageSize
 	layerDepth := 3
@@ -44,7 +41,6 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 		layerDepth = filterCount
 		layerSize = layer.OutputWidth()
 		net = append(net, layer)
-		net = append(net, batchnorm.NewLayer(layerDepth))
 		if PoolingLayers[i] {
 			poolLayer := &neuralnet.MaxPoolingLayer{
 				XSpan:       2,
@@ -65,7 +61,6 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 			InputCount:  inputVecSize,
 			OutputCount: hiddenSize,
 		})
-		net = append(net, batchnorm.NewLayer(hiddenSize))
 		net = append(net, &neuralnet.ReLU{})
 		inputVecSize = hiddenSize
 	}

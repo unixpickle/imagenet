@@ -11,7 +11,7 @@ import (
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
-const InputImageSize = 256
+const InputImageSize = 224
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
