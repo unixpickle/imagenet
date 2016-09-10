@@ -2,10 +2,9 @@ package main
 
 import (
 	"io/ioutil"
-	"math"
-	"math/rand"
 	"os"
 
+	"github.com/unixpickle/batchnorm"
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
@@ -16,7 +15,6 @@ const (
 var ConvFilterCounts = []int{48, 64, 128, 128, 128, 128}
 var PoolingLayers = map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true}
 var HiddenSizes = []int{2048, 2048}
-var HiddenDropoutKeep = []float64{0.5, 0.8}
 
 func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, error) {
 	data, err := ioutil.ReadFile(path)
@@ -26,12 +24,8 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 		return nil, err
 	}
 
-	mean, variance := pixelStats(samples)
 	net := neuralnet.Network{
-		&neuralnet.RescaleLayer{
-			Bias:  -mean,
-			Scale: 1 / math.Sqrt(variance),
-		},
+		batchnorm.NewLayer(InputImageSize * InputImageSize * 3),
 	}
 
 	layerSize := InputImageSize
@@ -62,20 +56,18 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 			layerSize = poolLayer.OutputWidth()
 		}
 		net = append(net, &neuralnet.ReLU{})
+		net = append(net, batchnorm.NewLayer(layerSize*layerSize*layerDepth))
 	}
 
 	inputVecSize := layerSize * layerSize * layerDepth
-	for i, hiddenSize := range HiddenSizes {
-		net = append(net, &neuralnet.DropoutLayer{
-			Training:        true,
-			KeepProbability: HiddenDropoutKeep[i],
-		})
+	for _, hiddenSize := range HiddenSizes {
 		net = append(net, &neuralnet.DenseLayer{
 			InputCount:  inputVecSize,
 			OutputCount: hiddenSize,
 		})
 		net = append(net, &neuralnet.ReLU{})
 		inputVecSize = hiddenSize
+		net = append(net, batchnorm.NewLayer(inputVecSize))
 	}
 	net = append(net, &neuralnet.DenseLayer{
 		InputCount:  inputVecSize,
@@ -86,21 +78,4 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 	net.Randomize()
 
 	return net, nil
-}
-
-func pixelStats(samples SampleSet) (mean, variance float64) {
-	var count int
-	for i := 0; i < MeanSampleCount; i++ {
-		sampleIdx := rand.Intn(samples.Len())
-		sample := samples.GetSample(sampleIdx).(neuralnet.VectorSample)
-		for _, brightness := range sample.Input {
-			mean += brightness
-			variance += brightness * brightness
-			count++
-		}
-	}
-	mean /= float64(count)
-	variance /= float64(count)
-	variance -= mean * mean
-	return
 }

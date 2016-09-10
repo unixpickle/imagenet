@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/unixpickle/batchnorm"
 	"github.com/unixpickle/sgd"
 	"github.com/unixpickle/weakai/neuralnet"
 )
@@ -14,12 +15,10 @@ const (
 	ImageDirArg = 1
 	OutNetArg   = 2
 
-	StepSize  = 1e-3
-	BatchSize = 30
-
-	ValidationSize   = 0.1
-	ValidationSubset = 50
-	SubTrainingSize  = 250
+	StepSize            = 1e-3
+	BatchNormStabilizer = 1e-3
+	BatchSize           = 128
+	ValidationSize      = 0.1
 )
 
 func main() {
@@ -41,33 +40,36 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Failed to create network:", err)
 		os.Exit(1)
 	}
-	gradienter := &sgd.Adam{
+	gradienter := &sgd.Momentum{
 		Gradienter: &neuralnet.BatchRGradienter{
 			Learner:       network.BatchLearner(),
 			CostFunc:      &neuralnet.DotCost{},
-			MaxBatchSize:  2,
-			MaxGoroutines: 3,
+			MaxBatchSize:  1,
+			MaxGoroutines: 1,
 		},
+		Momentum: 0.9,
 	}
 
 	sgd.ShuffleSampleSet(samples)
 	validation := samples.Subset(0, int(float64(samples.Len())*ValidationSize))
 	training := samples.Subset(validation.Len(), samples.Len())
 
-	subTraining := training.Copy().Subset(0, SubTrainingSize).(SampleSet)
-
-	var epoch int
 	log.Println("Training...")
-	sgd.SGDInteractive(gradienter, subTraining, StepSize, BatchSize, func() bool {
-		s := training.Copy()
-		sgd.ShuffleSampleSet(s)
-		s = s.Subset(0, SubTrainingSize)
-		copy(subTraining, s.(SampleSet))
-
-		log.Printf("Epoch=%d validation=%f training=%f", epoch,
-			randomSubsetCost(validation, network),
-			randomSubsetCost(subTraining, network))
-		epoch++
+	var miniBatch int
+	var lastBatch sgd.SampleSet
+	sgd.SGDMini(gradienter, training, StepSize, BatchSize, func(s sgd.SampleSet) bool {
+		validationCost := randomSubsetCost(validation, network)
+		newCost := randomSubsetCost(s, network)
+		if lastBatch == nil {
+			log.Printf("batch=%d validation=%f training=%f", miniBatch,
+				validationCost, newCost)
+		} else {
+			log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
+				validationCost, newCost, randomSubsetCost(lastBatch, network))
+		}
+		lastBatch = s.Copy()
+		miniBatch++
+		batchnorm.BatchNorm(network, s, BatchNormStabilizer)
 		return true
 	})
 
@@ -83,10 +85,10 @@ func main() {
 }
 
 func randomSubsetCost(s sgd.SampleSet, n neuralnet.Network) float64 {
-	if s.Len() > ValidationSubset {
+	if s.Len() > BatchSize {
 		s = s.Copy()
 		sgd.ShuffleSampleSet(s)
-		s = s.Subset(0, ValidationSubset)
+		s = s.Subset(0, BatchSize)
 	}
 	return neuralnet.TotalCost(&neuralnet.DotCost{}, n, s)
 }
