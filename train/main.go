@@ -16,12 +16,9 @@ const (
 	ImageDirArg = 1
 	OutNetArg   = 2
 
-	StepSize            = 1e-5
-	BatchNormStabilizer = 1e-3
-	BatchSize           = 12
-	ValidationSize      = 0.1
-
-	MaxCache = BatchSize * 64 * 64 * 128
+	StepSize       = 1e-4
+	BatchSize      = 12
+	ValidationSize = 0.1
 )
 
 func main() {
