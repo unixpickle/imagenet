@@ -16,7 +16,7 @@ const (
 	OutNetArg   = 2
 
 	StepSize            = 1e-3
-	BatchNormStabilizer = 1e-3
+	BatchNormStabilizer = 5e-1
 	BatchSize           = 128
 	ValidationSize      = 0.1
 )
