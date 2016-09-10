@@ -15,10 +15,12 @@ const (
 	ImageDirArg = 1
 	OutNetArg   = 2
 
-	StepSize            = 1e-3
-	BatchNormStabilizer = 5e-1
+	StepSize            = 1e-5
+	BatchNormStabilizer = 1e-3
 	BatchSize           = 128
 	ValidationSize      = 0.1
+
+	MaxCache = BatchSize * 64 * 64 * 128
 )
 
 func main() {
@@ -67,9 +69,9 @@ func main() {
 			log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
 				validationCost, newCost, randomSubsetCost(lastBatch, network))
 		}
+		batchnorm.BatchNorm(network, s, BatchNormStabilizer, MaxCache)
 		lastBatch = s.Copy()
 		miniBatch++
-		batchnorm.BatchNorm(network, s, BatchNormStabilizer)
 		return true
 	})
 

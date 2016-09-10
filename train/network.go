@@ -44,6 +44,7 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 		layerDepth = filterCount
 		layerSize = layer.OutputWidth()
 		net = append(net, layer)
+		net = append(net, batchnorm.NewLayer(layerDepth))
 		if PoolingLayers[i] {
 			poolLayer := &neuralnet.MaxPoolingLayer{
 				XSpan:       2,
@@ -56,7 +57,6 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 			layerSize = poolLayer.OutputWidth()
 		}
 		net = append(net, &neuralnet.ReLU{})
-		net = append(net, batchnorm.NewLayer(layerSize*layerSize*layerDepth))
 	}
 
 	inputVecSize := layerSize * layerSize * layerDepth
@@ -65,9 +65,9 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 			InputCount:  inputVecSize,
 			OutputCount: hiddenSize,
 		})
+		net = append(net, batchnorm.NewLayer(hiddenSize))
 		net = append(net, &neuralnet.ReLU{})
 		inputVecSize = hiddenSize
-		net = append(net, batchnorm.NewLayer(inputVecSize))
 	}
 	net = append(net, &neuralnet.DenseLayer{
 		InputCount:  inputVecSize,
