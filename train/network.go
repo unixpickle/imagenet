@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/unixpickle/batchnorm"
+	"github.com/unixpickle/imagenet"
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
@@ -16,7 +17,7 @@ var ConvFilterCounts = []int{48, 64, 96, 128, 128, 128}
 var PoolingLayers = map[int]bool{0: true, 1: true, 2: true, 3: true, 4: true, 5: true}
 var HiddenSizes = []int{2048, 2048}
 
-func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, error) {
+func LoadOrCreateNetwork(path string, samples imagenet.SampleSet) (neuralnet.Network, error) {
 	data, err := ioutil.ReadFile(path)
 	if err == nil {
 		return neuralnet.DeserializeNetwork(data)
@@ -26,7 +27,7 @@ func LoadOrCreateNetwork(path string, samples SampleSet) (neuralnet.Network, err
 
 	net := neuralnet.Network{}
 
-	layerSize := InputImageSize
+	layerSize := imagenet.InputImageSize
 	layerDepth := 3
 
 	for i, filterCount := range ConvFilterCounts {

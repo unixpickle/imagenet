@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/unixpickle/autofunc"
+	"github.com/unixpickle/imagenet"
 	"github.com/unixpickle/num-analysis/linalg"
 	"github.com/unixpickle/sgd"
 	"github.com/unixpickle/weakai/neuralnet"
@@ -28,7 +29,7 @@ func main() {
 	}
 
 	log.Println("Loading samples...")
-	samples, err := NewSampleSet(os.Args[ImageDirArg])
+	samples, err := imagenet.NewSampleSet(os.Args[ImageDirArg])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
 		os.Exit(1)
