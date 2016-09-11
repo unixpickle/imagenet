@@ -16,7 +16,7 @@ import (
 	"sync"
 )
 
-const FetchRoutines = 10
+const FetchRoutines = 30
 const ImageNetAPI = "http://www.image-net.org/api/text/imagenet.synset.geturls?wnid="
 
 func Fetch(wnids []string, imgCount int, outDir string) {
