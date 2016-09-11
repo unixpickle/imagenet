@@ -6,8 +6,8 @@ import (
 	_ "image/png"
 	"os"
 
-	"github.com/nfnt/resize"
 	"github.com/unixpickle/num-analysis/linalg"
+	"github.com/unixpickle/resize"
 	"github.com/unixpickle/weakai/neuralnet"
 )
 
