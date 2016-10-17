@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"image/jpeg"
@@ -87,10 +89,16 @@ func fetchWNID(wnid string, maxCount int, outDir string) {
 			break
 		}
 		data, ext, err := fetchImage(urls[i])
-		if err != nil {
+		if err != nil || ext == "png" {
+			// Ignore PNGs because they are usually "image not found"
+			// placeholders on image hosting websites.
 			continue
 		}
-		imgPath := filepath.Join(subPath, fmt.Sprintf("%d.%s", rand.Int(), ext))
+		hash := hashContents(data)
+		imgPath := filepath.Join(subPath, fmt.Sprintf("%s.%s", hash, ext))
+		if _, err := os.Stat(imgPath); err == nil {
+			continue
+		}
 		if err := ioutil.WriteFile(imgPath, data, 0755); err != nil {
 			log.Printf("Failed to write %s: %s", imgPath, err)
 			return
@@ -130,4 +138,10 @@ func fetchImage(fileURL string) (data []byte, extension string, err error) {
 		return contents, "png", nil
 	}
 	return nil, "", errors.New("unsupported image format")
+}
+
+func hashContents(contents []byte) string {
+	rawHash := md5.Sum(contents)
+	hash := hex.EncodeToString(rawHash[:])
+	return strings.ToLower(hash)
 }
