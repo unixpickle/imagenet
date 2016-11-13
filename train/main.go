@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/unixpickle/autofunc"
 	"github.com/unixpickle/imagenet"
@@ -23,6 +25,8 @@ const (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	if len(os.Args) != 3 {
 		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "image_dir out_net")
 		os.Exit(1)
@@ -34,6 +38,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
 		os.Exit(1)
 	}
+	validation, training := sgd.HashSplit(samples, ValidationSize)
+	log.Println("Loaded", validation.Len(), "validation,", training.Len(), "training.")
 
 	log.Println("Loading/creating network...")
 	network, err := LoadOrCreateNetwork(os.Args[OutNetArg], samples)
@@ -50,10 +56,6 @@ func main() {
 		},
 		Momentum: 0.9,
 	}
-
-	sgd.ShuffleSampleSet(samples)
-	validation := samples.Subset(0, int(float64(samples.Len())*ValidationSize))
-	training := samples.Subset(validation.Len(), samples.Len())
 
 	log.Println("Training...")
 	var miniBatch int

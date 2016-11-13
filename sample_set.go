@@ -1,6 +1,7 @@
 package imagenet
 
 import (
+	"crypto/md5"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -96,4 +97,12 @@ func (s SampleSet) GetSample(idx int) interface{} {
 
 func (s SampleSet) Subset(start, end int) sgd.SampleSet {
 	return s[start:end]
+}
+
+// Hash returns the hash of the given sample's base
+// filename (e.g. "apple1.png").
+func (s SampleSet) Hash(idx int) []byte {
+	name := filepath.Base(s[idx].Path)
+	hash := md5.Sum([]byte(name))
+	return hash[:]
 }
