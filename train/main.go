@@ -22,6 +22,8 @@ const (
 	StepSize       = 1e-4
 	BatchSize      = 12
 	ValidationSize = 0.1
+
+	LogInterval = 4
 )
 
 func main() {
@@ -61,16 +63,18 @@ func main() {
 	var miniBatch int
 	var lastBatch sgd.SampleSet
 	sgd.SGDMini(gradienter, training, StepSize, BatchSize, func(s sgd.SampleSet) bool {
-		validationCost := randomSubsetCost(validation, network)
-		newCost := randomSubsetCost(s, network)
-		if lastBatch == nil {
-			log.Printf("batch=%d validation=%f training=%f", miniBatch,
-				validationCost, newCost)
-		} else {
-			log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
-				validationCost, newCost, randomSubsetCost(lastBatch, network))
+		if miniBatch%LogInterval == 0 {
+			validationCost := randomSubsetCost(validation, network)
+			newCost := randomSubsetCost(s, network)
+			if lastBatch == nil {
+				log.Printf("batch=%d validation=%f training=%f", miniBatch,
+					validationCost, newCost)
+			} else {
+				log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
+					validationCost, newCost, randomSubsetCost(lastBatch, network))
+			}
+			lastBatch = s.Copy()
 		}
-		lastBatch = s.Copy()
 		miniBatch++
 		return true
 	})
