@@ -8,7 +8,7 @@ import (
 
 	"github.com/unixpickle/num-analysis/linalg"
 	"github.com/unixpickle/resize"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/tensor"
 )
 
 const InputImageSize = 224
@@ -36,7 +36,7 @@ func TrainingImage(path string) linalg.Vector {
 	cropX := (newImage.Bounds().Dx() - InputImageSize) / 2
 	cropY := (newImage.Bounds().Dy() - InputImageSize) / 2
 
-	res := neuralnet.NewTensor3(InputImageSize, InputImageSize, 3)
+	res := tensor.NewFloat64(InputImageSize, InputImageSize, 3)
 	for x := 0; x < InputImageSize; x++ {
 		for y := 0; y < InputImageSize; y++ {
 			pixel := newImage.At(x+newImage.Bounds().Min.X+cropX,
