@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/unixpickle/anynet"
 	"github.com/unixpickle/anynet/anyconv"
@@ -54,6 +56,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
 		os.Exit(1)
 	}
+	rand.Seed(time.Now().UnixNano())
 	anysgd.Shuffle(samples)
 	if sampleCount < samples.Len() {
 		samples = samples.Slice(0, sampleCount).(imagenet.SampleList)

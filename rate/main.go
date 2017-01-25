@@ -1,57 +1,63 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"sort"
-	"strconv"
 	"time"
 
-	"github.com/unixpickle/autofunc"
+	"github.com/unixpickle/anydiff"
+	"github.com/unixpickle/anynet/anyff"
+	"github.com/unixpickle/anynet/anysgd"
+	"github.com/unixpickle/anyvec"
 	"github.com/unixpickle/imagenet"
-	"github.com/unixpickle/sgd"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/serializer"
 
 	_ "github.com/unixpickle/batchnorm"
 )
 
 func main() {
-	if len(os.Args) != 3 && len(os.Args) != 4 {
-		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "model_file image_dir [n]")
+	var classifierPath string
+	var sampleDir string
+	var topN int
+
+	flag.StringVar(&classifierPath, "classifier", "", "classifier file")
+	flag.StringVar(&sampleDir, "samples", "", "sample directory")
+	flag.IntVar(&topN, "topn", 1, "top N rating")
+
+	flag.Parse()
+
+	if classifierPath == "" || sampleDir == "" {
+		fmt.Fprintln(os.Stderr, "Required flags: -classifier and -samples")
+		fmt.Fprintln(os.Stderr)
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
-	n := 1
-	if len(os.Args) == 4 {
-		count, err := strconv.Atoi(os.Args[3])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Invalid top-n value:", os.Args[3])
-			os.Exit(1)
-		}
-		n = count
-	}
-
-	model, err := readModel()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to read model:", err)
+	log.Println("Loading classifier...")
+	var classifier *imagenet.Classifier
+	if err := serializer.LoadAny(classifierPath, &classifier); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to load classifier:", err)
 		os.Exit(1)
 	}
 
-	samples, err := imagenet.NewSampleSet(os.Args[2])
+	log.Println("Loading samples...")
+	samples, err := imagenet.NewSampleList(sampleDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to load samples:", err)
 		os.Exit(1)
 	}
 
 	rand.Seed(time.Now().UnixNano())
-	sgd.ShuffleSampleSet(samples)
+	anysgd.Shuffle(samples)
 
-	sampleChan := make(chan neuralnet.VectorSample, 1)
+	sampleChan := make(chan *anyff.Sample, 1)
 	go func() {
 		for i := 0; i < samples.Len(); i++ {
-			sampleChan <- samples.GetSample(i).(neuralnet.VectorSample)
+			sampleChan <- samples.GetSample(i)
 		}
 		close(sampleChan)
 	}()
@@ -59,22 +65,24 @@ func main() {
 	outChan := make(chan bool)
 
 	go func() {
-		rateSamples(n, model, sampleChan, outChan)
+		rateSamples(topN, classifier, sampleChan, outChan)
 		close(outChan)
 	}()
 
 	printResults(outChan)
 }
 
-func rateSamples(n int, net neuralnet.Network, samples <-chan neuralnet.VectorSample,
+func rateSamples(n int, c *imagenet.Classifier, samples <-chan *anyff.Sample,
 	out chan<- bool) {
 	for sample := range samples {
-		res := net.Apply(&autofunc.Variable{Vector: sample.Input}).Output()
+		res := c.Net.Apply(anydiff.NewConst(sample.Input), 1).Output()
 
-		topClasses := sortByIndex(res)
+		topClasses := sortByIndex(res.Data().([]float32))
+		class := anyvec.MaxIndex(sample.Output)
+
 		var gotIt bool
 		for i := 0; i < n; i++ {
-			if sample.Output[topClasses[i]] != 0 {
+			if topClasses[i] == class {
 				gotIt = true
 				break
 			}
@@ -82,14 +90,6 @@ func rateSamples(n int, net neuralnet.Network, samples <-chan neuralnet.VectorSa
 
 		out <- gotIt
 	}
-}
-
-func readModel() (neuralnet.Network, error) {
-	modelData, err := ioutil.ReadFile(os.Args[1])
-	if err != nil {
-		return nil, err
-	}
-	return neuralnet.DeserializeNetwork(modelData)
 }
 
 func printResults(resChan <-chan bool) {
@@ -105,11 +105,11 @@ func printResults(resChan <-chan bool) {
 }
 
 type valIndexSorter struct {
-	Values  []float64
+	Values  []float32
 	Indices []int
 }
 
-func sortByIndex(vals []float64) []int {
+func sortByIndex(vals []float32) []int {
 	sorter := &valIndexSorter{Values: vals, Indices: make([]int, len(vals))}
 	for i := range vals {
 		sorter.Indices[i] = i
