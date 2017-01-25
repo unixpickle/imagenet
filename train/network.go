@@ -1,12 +1,11 @@
 package main
 
 import (
-	"io/ioutil"
-	"os"
-
-	"github.com/unixpickle/batchnorm"
+	"github.com/unixpickle/anynet"
+	"github.com/unixpickle/anynet/anyconv"
+	"github.com/unixpickle/anyvec/anyvec32"
 	"github.com/unixpickle/imagenet"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/serializer"
 )
 
 const (
@@ -17,37 +16,37 @@ var ConvFilterCounts = []int{48, 64, 96, 128, 128, 128}
 var PoolingLayers = map[int]bool{0: true, 1: true, 2: true, 3: true, 4: true, 5: true}
 var HiddenSizes = []int{2048, 2048}
 
-func LoadOrCreateNetwork(path string, samples imagenet.SampleSet) (neuralnet.Network, error) {
-	data, err := ioutil.ReadFile(path)
-	if err == nil {
-		return neuralnet.DeserializeNetwork(data)
-	} else if !os.IsNotExist(err) {
-		return nil, err
+func LoadOrCreateNetwork(path string, samples imagenet.SampleList) (anynet.Net, error) {
+	var net anynet.Net
+	if err := serializer.LoadAny(path, &net); err == nil {
+		return net, nil
 	}
 
-	net := neuralnet.Network{}
+	c := anyvec32.CurrentCreator()
 
 	layerSize := imagenet.InputImageSize
 	layerDepth := 3
 
 	for i, filterCount := range ConvFilterCounts {
-		layer := &neuralnet.ConvLayer{
+		layer := &anyconv.Conv{
 			FilterWidth:  3,
 			FilterHeight: 3,
 			FilterCount:  filterCount,
-			Stride:       1,
+			StrideX:      1,
+			StrideY:      1,
 			InputWidth:   layerSize,
 			InputHeight:  layerSize,
 			InputDepth:   layerDepth,
 		}
+		layer.InitRand(c)
 		layerDepth = filterCount
 		layerSize = layer.OutputWidth()
 		net = append(net, layer)
-		net = append(net, batchnorm.NewLayer(filterCount))
+		net = append(net, anyconv.NewBatchNorm(c, filterCount))
 		if PoolingLayers[i] {
-			poolLayer := &neuralnet.MaxPoolingLayer{
-				XSpan:       2,
-				YSpan:       2,
+			poolLayer := &anyconv.MaxPool{
+				SpanX:       2,
+				SpanY:       2,
 				InputWidth:  layerSize,
 				InputHeight: layerSize,
 				InputDepth:  layerDepth,
@@ -55,25 +54,17 @@ func LoadOrCreateNetwork(path string, samples imagenet.SampleSet) (neuralnet.Net
 			net = append(net, poolLayer)
 			layerSize = poolLayer.OutputWidth()
 		}
-		net = append(net, &neuralnet.ReLU{})
+		net = append(net, anynet.ReLU)
 	}
 
 	inputVecSize := layerSize * layerSize * layerDepth
 	for _, hiddenSize := range HiddenSizes {
-		net = append(net, &neuralnet.DenseLayer{
-			InputCount:  inputVecSize,
-			OutputCount: hiddenSize,
-		})
-		net = append(net, &neuralnet.ReLU{})
+		net = append(net, anynet.NewFC(c, inputVecSize, hiddenSize))
+		net = append(net, anynet.ReLU)
 		inputVecSize = hiddenSize
 	}
-	net = append(net, &neuralnet.DenseLayer{
-		InputCount:  inputVecSize,
-		OutputCount: samples.ClassCount(),
-	})
-	net = append(net, &neuralnet.LogSoftmaxLayer{})
-
-	net.Randomize()
+	net = append(net, anynet.NewFC(c, inputVecSize, samples.ClassCount()))
+	net = append(net, anynet.LogSoftmax)
 
 	return net, nil
 }

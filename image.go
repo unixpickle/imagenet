@@ -6,16 +6,16 @@ import (
 	_ "image/png"
 	"os"
 
-	"github.com/unixpickle/num-analysis/linalg"
+	"github.com/unixpickle/anyvec"
+	"github.com/unixpickle/anyvec/anyvec32"
 	"github.com/unixpickle/resize"
-	"github.com/unixpickle/weakai/neuralnet"
 )
 
 const InputImageSize = 224
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
-func TrainingImage(path string) linalg.Vector {
+func TrainingImage(path string) anyvec.Vector {
 	f, err := os.Open(path)
 	if err != nil {
 		panic("could not read training image: " + path)
@@ -36,17 +36,18 @@ func TrainingImage(path string) linalg.Vector {
 	cropX := (newImage.Bounds().Dx() - InputImageSize) / 2
 	cropY := (newImage.Bounds().Dy() - InputImageSize) / 2
 
-	res := neuralnet.NewTensor3(InputImageSize, InputImageSize, 3)
-	for x := 0; x < InputImageSize; x++ {
-		for y := 0; y < InputImageSize; y++ {
+	resSlice := make([]float32, InputImageSize*InputImageSize*3)
+	for y := 0; y < InputImageSize; y++ {
+		for x := 0; x < InputImageSize; x++ {
 			pixel := newImage.At(x+newImage.Bounds().Min.X+cropX,
 				y+newImage.Bounds().Min.Y+cropY)
+			idx := (y*InputImageSize + x) * 3
 			r, g, b, _ := pixel.RGBA()
-			res.Set(x, y, 0, float64(r)/0xffff)
-			res.Set(x, y, 1, float64(g)/0xffff)
-			res.Set(x, y, 2, float64(b)/0xffff)
+			resSlice[idx] = float32(r) / 0xffff
+			resSlice[idx+1] = float32(g) / 0xffff
+			resSlice[idx+2] = float32(b) / 0xffff
 		}
 	}
 
-	return res.Data
+	return anyvec32.MakeVectorData(resSlice)
 }

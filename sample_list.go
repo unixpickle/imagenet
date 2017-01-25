@@ -8,9 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/unixpickle/num-analysis/linalg"
-	"github.com/unixpickle/sgd"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/anynet/anyff"
+	"github.com/unixpickle/anynet/anysgd"
 )
 
 // A Sample stores the metadata for a training image.
@@ -20,13 +19,13 @@ type Sample struct {
 	Path       string
 }
 
-// A SampleSet is a lazy collection of image samples.
-type SampleSet []Sample
+// A SampleList is a lazy collection of image samples.
+type SampleList []Sample
 
-// NewSampleSet creates a samlpe set based on the
+// NewSampleList creates a samlpe set based on the
 // directory/file structure of the given root sample
 // directory.
-func NewSampleSet(dir string) (SampleSet, error) {
+func NewSampleList(dir string) (SampleList, error) {
 	imageDirs, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -41,7 +40,7 @@ func NewSampleSet(dir string) (SampleSet, error) {
 	}
 	sort.Strings(dirNames)
 
-	var res SampleSet
+	var res SampleList
 	var class int
 	for _, subDir := range dirNames {
 		listing, err := ioutil.ReadDir(subDir)
@@ -67,41 +66,36 @@ func NewSampleSet(dir string) (SampleSet, error) {
 }
 
 // ClassCount returns the number of classes in the set.
-func (s SampleSet) ClassCount() int {
+func (s SampleList) ClassCount() int {
 	return s[0].ClassCount
 }
 
-func (s SampleSet) Len() int {
+func (s SampleList) Len() int {
 	return len(s)
 }
 
-func (s SampleSet) Copy() sgd.SampleSet {
-	res := make(SampleSet, len(s))
-	copy(res, s)
-	return res
-}
-
-func (s SampleSet) Swap(i, j int) {
+func (s SampleList) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s SampleSet) GetSample(idx int) interface{} {
-	outVec := make(linalg.Vector, s[idx].ClassCount)
+func (s SampleList) Slice(start, end int) anysgd.SampleList {
+	return append(SampleList{}, s[start:end]...)
+}
+
+func (s SampleList) GetSample(idx int) *anyff.Sample {
+	outVec := make([]float64, s[idx].ClassCount)
 	outVec[s[idx].Class] = 1
-	sample := neuralnet.VectorSample{
-		Input:  TrainingImage(s[idx].Path),
-		Output: outVec,
+	in := TrainingImage(s[idx].Path)
+	sample := &anyff.Sample{
+		Input:  in,
+		Output: in.Creator().MakeVectorData(in.Creator().MakeNumericList(outVec)),
 	}
 	return sample
 }
 
-func (s SampleSet) Subset(start, end int) sgd.SampleSet {
-	return s[start:end]
-}
-
 // Hash returns the hash of the given sample's base
 // filename (e.g. "apple1.png").
-func (s SampleSet) Hash(idx int) []byte {
+func (s SampleList) Hash(idx int) []byte {
 	name := filepath.Base(s[idx].Path)
 	hash := md5.Sum([]byte(name))
 	return hash[:]

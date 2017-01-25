@@ -2,17 +2,19 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
 	"time"
 
-	"github.com/unixpickle/autofunc"
+	"github.com/pkg/profile"
+	"github.com/unixpickle/anynet"
+	"github.com/unixpickle/anynet/anyff"
+	"github.com/unixpickle/anynet/anysgd"
+	"github.com/unixpickle/anyvec"
 	"github.com/unixpickle/imagenet"
-	"github.com/unixpickle/num-analysis/linalg"
-	"github.com/unixpickle/sgd"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/rip"
+	"github.com/unixpickle/serializer"
 )
 
 const (
@@ -29,18 +31,20 @@ const (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
+	defer profile.Start(profile.MemProfile).Stop()
+
 	if len(os.Args) != 3 {
 		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "image_dir out_net")
 		os.Exit(1)
 	}
 
 	log.Println("Loading samples...")
-	samples, err := imagenet.NewSampleSet(os.Args[ImageDirArg])
+	samples, err := imagenet.NewSampleList(os.Args[ImageDirArg])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
 		os.Exit(1)
 	}
-	validation, training := sgd.HashSplit(samples, ValidationSize)
+	validation, training := anysgd.HashSplit(samples, ValidationSize)
 	log.Println("Loaded", validation.Len(), "validation,", training.Len(), "training.")
 
 	log.Println("Loading/creating network...")
@@ -49,60 +53,41 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Failed to create network:", err)
 		os.Exit(1)
 	}
-	gradienter := &sgd.Momentum{
-		Gradienter: &neuralnet.BatchRGradienter{
-			Learner:       network.BatchLearner(),
-			CostFunc:      &neuralnet.DotCost{},
-			MaxBatchSize:  BatchSize,
-			MaxGoroutines: 1,
-		},
-		Momentum: 0.9,
+
+	t := &anyff.Trainer{
+		Net:     network,
+		Cost:    anynet.DotCost{},
+		Params:  network.Parameters(),
+		Average: true,
 	}
 
-	log.Println("Training...")
-	var miniBatch int
-	var lastBatch sgd.SampleSet
-	sgd.SGDMini(gradienter, training, StepSize, BatchSize, func(s sgd.SampleSet) bool {
-		if miniBatch%LogInterval == 0 {
-			validationCost := randomSubsetCost(validation, network)
-			newCost := randomSubsetCost(s, network)
-			if lastBatch == nil {
-				log.Printf("batch=%d validation=%f training=%f", miniBatch,
-					validationCost, newCost)
+	var iterNum int
+	s := &anysgd.SGD{
+		Fetcher:     t,
+		Gradienter:  t,
+		Transformer: &anysgd.Adam{},
+		Samples:     samples,
+		Rater:       anysgd.ConstRater(0.001),
+		StatusFunc: func(b anysgd.Batch) {
+			if iterNum%LogInterval == 0 {
+				log.Printf("iter %d: cost=%v", iterNum, t.LastCost)
 			} else {
-				log.Printf("batch=%d validation=%f training=%f last=%f", miniBatch,
-					validationCost, newCost, randomSubsetCost(lastBatch, network))
+				anysgd.Shuffle(validation)
+				valid := validation.Slice(0, BatchSize)
+				batch, _ := t.Fetch(valid)
+				vCost := anyvec.Sum(t.TotalCost(batch.(*anyff.Batch)).Output())
+				log.Printf("iter %d: cost=%v validation=%v", iterNum, vCost, t.LastCost)
 			}
-			lastBatch = s.Copy()
-		}
-		miniBatch++
-		return true
-	})
-
-	serialized, err := network.Serialize()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to serialize network:", err)
-		os.Exit(1)
+			iterNum++
+		},
+		BatchSize: 100,
 	}
-	if err := ioutil.WriteFile(os.Args[OutNetArg], serialized, 0755); err != nil {
+
+	log.Println("Press ctrl+c once to stop...")
+	s.Run(rip.NewRIP().Chan())
+
+	if err := serializer.SaveAny(os.Args[OutNetArg], network); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to save network:", err)
 		os.Exit(1)
 	}
-}
-
-func randomSubsetCost(s sgd.SampleSet, n neuralnet.Network) float64 {
-	if s.Len() > BatchSize {
-		s = s.Copy()
-		sgd.ShuffleSampleSet(s)
-		s = s.Subset(0, BatchSize)
-	}
-	var inVec linalg.Vector
-	var outVec linalg.Vector
-	for i := 0; i < s.Len(); i++ {
-		sample := s.GetSample(i).(neuralnet.VectorSample)
-		inVec = append(inVec, sample.Input...)
-		outVec = append(outVec, sample.Output...)
-	}
-	out := n.BatchLearner().Batch(&autofunc.Variable{Vector: inVec}, s.Len())
-	return neuralnet.DotCost{}.Cost(outVec, out).Output()[0]
 }
