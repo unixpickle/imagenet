@@ -1,0 +1,40 @@
+Input(w=224, h=224, d=3)
+
+Conv(w=3, h=3, n=48)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+Conv(w=3, h=3, n=64)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+Conv(w=3, h=3, n=96)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+Conv(w=3, h=3, n=128)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+Conv(w=3, h=3, n=128)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+Conv(w=3, h=3, n=128)
+BatchNorm
+MaxPool(w=2, h=2)
+ReLU
+
+FC(out=2048)
+ReLU
+
+FC(out=2048)
+ReLU
+
+FC(out=1000)
+Softmax

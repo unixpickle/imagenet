@@ -26,6 +26,7 @@ func main() {
 	var batchSize int
 	var validationSize float64
 	var logInterval int
+	var modelFile string
 
 	flag.StringVar(&imageDir, "samples", "", "sample directory")
 	flag.StringVar(&outNet, "out", "out_net", "network file")
@@ -33,6 +34,7 @@ func main() {
 	flag.IntVar(&batchSize, "batch", 12, "batch size")
 	flag.Float64Var(&validationSize, "validation", 0.1, "validation fraction")
 	flag.IntVar(&logInterval, "logint", 4, "validation log interval")
+	flag.StringVar(&modelFile, "model", "models/orig.txt", "model markup file")
 
 	flag.Parse()
 
@@ -43,6 +45,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Println("Loading/creating network...")
+	network, err := LoadOrCreateNetwork(outNet, modelFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to create network:", err)
+		os.Exit(1)
+	}
+	paramCount := 0
+	for _, p := range network.Parameters() {
+		paramCount += p.Vector.Len()
+	}
+	log.Println("Network has", paramCount, "parameters.")
+
 	log.Println("Loading samples...")
 	samples, err := imagenet.NewSampleList(imageDir)
 	if err != nil {
@@ -51,13 +65,6 @@ func main() {
 	}
 	validation, training := anysgd.HashSplit(samples, validationSize)
 	log.Println("Loaded", validation.Len(), "validation,", training.Len(), "training.")
-
-	log.Println("Loading/creating network...")
-	network, err := LoadOrCreateNetwork(outNet, samples)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to create network:", err)
-		os.Exit(1)
-	}
 
 	t := &anyff.Trainer{
 		Net:     network,
