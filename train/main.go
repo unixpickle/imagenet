@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/pkg/profile"
 	"github.com/unixpickle/anynet"
 	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
@@ -30,8 +29,6 @@ const (
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
-
-	defer profile.Start(profile.MemProfile).Stop()
 
 	if len(os.Args) != 3 {
 		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "image_dir out_net")
@@ -69,7 +66,7 @@ func main() {
 		Samples:     samples,
 		Rater:       anysgd.ConstRater(0.001),
 		StatusFunc: func(b anysgd.Batch) {
-			if iterNum%LogInterval == 0 {
+			if iterNum%LogInterval != 1 {
 				log.Printf("iter %d: cost=%v", iterNum, t.LastCost)
 			} else {
 				anysgd.Shuffle(validation)
@@ -80,7 +77,7 @@ func main() {
 			}
 			iterNum++
 		},
-		BatchSize: 100,
+		BatchSize: BatchSize,
 	}
 
 	log.Println("Press ctrl+c once to stop...")
