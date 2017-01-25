@@ -6,6 +6,8 @@ import (
 
 	"github.com/unixpickle/anynet"
 	"github.com/unixpickle/serializer"
+
+	_ "github.com/unixpickle/anynet/anyconv"
 )
 
 func init() {
