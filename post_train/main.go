@@ -1,156 +1,108 @@
+// Command post_train produces an *imagenet.Classifier for
+// a neural network.
+// As part of doing this, it converts batch normalization
+// layers into affine transforms.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/signal"
-	"runtime"
-	"sync"
+	"sort"
 
-	"github.com/unixpickle/autofunc"
-	"github.com/unixpickle/batchnorm"
+	"github.com/unixpickle/anynet"
+	"github.com/unixpickle/anynet/anyconv"
+	"github.com/unixpickle/anynet/anyff"
+	"github.com/unixpickle/anynet/anysgd"
 	"github.com/unixpickle/imagenet"
-	"github.com/unixpickle/num-analysis/linalg"
-	"github.com/unixpickle/weakai/neuralnet"
+	"github.com/unixpickle/serializer"
 )
-
-const (
-	ImageDirArg = 1
-	OutNetArg   = 2
-)
-
-type ActivationInfo struct {
-	Value  linalg.Vector
-	Square linalg.Vector
-	Layer  *batchnorm.Layer
-}
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, "Usage:", os.Args[0], "image_dir net_file")
+	var imgDir string
+	var inNet string
+	var outNet string
+
+	var batchSize int
+	var sampleCount int
+
+	flag.StringVar(&imgDir, "samples", "", "sample directory")
+	flag.StringVar(&inNet, "in", "", "input network")
+	flag.StringVar(&outNet, "out", "", "output network")
+	flag.IntVar(&batchSize, "batch", 8, "evaluation batch size")
+	flag.IntVar(&sampleCount, "total", 512, "total samples for BatchNorm replacement")
+
+	flag.Parse()
+
+	if imgDir == "" || inNet == "" || outNet == "" {
+		fmt.Fprintln(os.Stderr, "Required flags: -in, -out, and -samples")
+		fmt.Fprintln(os.Stderr)
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
 	log.Println("Loading samples...")
-	samples, err := imagenet.NewSampleSet(os.Args[ImageDirArg])
+	classes, err := folderNames(imgDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to read classes:", err)
+		os.Exit(1)
+	}
+	samples, err := imagenet.NewSampleList(imgDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
 		os.Exit(1)
 	}
+	anysgd.Shuffle(samples)
+	if sampleCount < samples.Len() {
+		samples = samples.Slice(0, sampleCount).(imagenet.SampleList)
+	}
 
 	log.Println("Loading network...")
-	netData, err := ioutil.ReadFile(os.Args[OutNetArg])
-	if err != nil {
+	var net anynet.Net
+	if err = serializer.LoadAny(inNet, &net); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read network:", err)
 		os.Exit(1)
 	}
-	net, err := neuralnet.DeserializeNetwork(netData)
+
+	log.Println("Replacing BatchNorm layers...")
+	pt := &anyconv.PostTrainer{
+		Samples:   samples,
+		Fetcher:   &anyff.Trainer{},
+		BatchSize: batchSize,
+		Net:       net,
+	}
+	if err = pt.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Post-training error:", err)
+		os.Exit(1)
+	}
+
+	log.Println("Saving classifier...")
+	cl := &imagenet.Classifier{
+		InWidth:  imagenet.InputImageSize,
+		InHeight: imagenet.InputImageSize,
+		Net:      net,
+		Classes:  classes,
+	}
+
+	if err = serializer.SaveAny(outNet, cl); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to save:", err)
+		os.Exit(1)
+	}
+}
+
+func folderNames(sampleDir string) ([]string, error) {
+	listing, err := ioutil.ReadDir(sampleDir)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to deserialize network:", err)
-		os.Exit(1)
+		return nil, err
 	}
-
-	log.Println("Computing means...")
-
-	ins := make(chan linalg.Vector, 1)
-	go func() {
-		defer close(ins)
-
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		for i := 0; i < samples.Len(); i++ {
-			select {
-			case <-c:
-				return
-			default:
-			}
-			ins <- samples.GetSample(i).(neuralnet.VectorSample).Input
-		}
-	}()
-
-	var wg sync.WaitGroup
-	outs := make(chan *ActivationInfo, 1)
-
-	for i := 0; i < runtime.GOMAXPROCS(0); i++ {
-		wg.Add(1)
-		go computeMeans(net, ins, outs, &wg)
-	}
-
-	go func() {
-		wg.Wait()
-		close(outs)
-	}()
-
-	var processedCount int
-	counts := map[*batchnorm.Layer]int{}
-	for a := range outs {
-		processedCount++
-		counts[a.Layer] += addMoments(a)
-		fmt.Printf("\rProcessed %d activations.", processedCount)
-	}
-	fmt.Println()
-
-	for layer, count := range counts {
-		layer.DoneTraining = true
-		layer.FinalMean.Scale(1 / float64(count))
-		layer.FinalVariance.Scale(1 / float64(count))
-		layer.FinalVariance.Add(square(layer.FinalMean).Scale(-1))
-	}
-
-	log.Println("Saving network...")
-
-	data, err := net.Serialize()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to serialize:", err)
-		os.Exit(1)
-	}
-
-	if err := ioutil.WriteFile(os.Args[OutNetArg], data, 0755); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to save network:", err)
-		os.Exit(1)
-	}
-}
-
-func computeMeans(net neuralnet.Network, ins <-chan linalg.Vector,
-	outs chan<- *ActivationInfo, wg *sync.WaitGroup) {
-	for input := range ins {
-		for _, layer := range net {
-			if l, ok := layer.(*batchnorm.Layer); ok {
-				outs <- &ActivationInfo{
-					Value:  input.Copy(),
-					Square: square(input),
-					Layer:  l,
-				}
-			}
-			input = layer.Apply(&autofunc.Variable{Vector: input}).Output()
+	var classes []string
+	for _, x := range listing {
+		if x.IsDir() {
+			classes = append(classes, x.Name())
 		}
 	}
-	wg.Done()
-}
-
-func square(in linalg.Vector) linalg.Vector {
-	res := make(linalg.Vector, len(in))
-	for i, x := range in {
-		res[i] = x * x
-	}
-	return res
-}
-
-func addMoments(a *ActivationInfo) int {
-	var count int
-	for i := 0; i < len(a.Value); i += a.Layer.InputCount {
-		val := a.Value[i : i+a.Layer.InputCount]
-		square := a.Square[i : i+a.Layer.InputCount]
-		if a.Layer.FinalMean == nil {
-			a.Layer.FinalMean = val
-			a.Layer.FinalVariance = square
-		} else {
-			a.Layer.FinalMean.Add(val)
-			a.Layer.FinalVariance.Add(square)
-		}
-		count++
-	}
-	return count
+	sort.Strings(classes)
+	return classes, nil
 }
