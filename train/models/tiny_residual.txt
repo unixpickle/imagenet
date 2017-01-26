@@ -15,8 +15,8 @@ Residual {
   Padding(l=1, r=1, t=1, b=1)
   Conv(w=3, h=3, n=64)
   BatchNorm
-  ReLU
 }
+ReLU
 
 Residual {
   Projection {
@@ -31,8 +31,8 @@ Residual {
   Padding(l=1, r=1, t=1, b=1)
   Conv(w=3, h=3, n=128)
   BatchNorm
-  ReLU
 }
+ReLU
 
 Assert(w=28, h=28, d=128)
 
@@ -49,8 +49,8 @@ Residual {
   Padding(l=1, r=1, t=1, b=1)
   Conv(w=3, h=3, n=256)
   BatchNorm
-  ReLU
 }
+ReLU
 
 Assert(w=14, h=14, d=256)
 
@@ -67,8 +67,8 @@ Residual {
   Padding(l=1, r=1, t=1, b=1)
   Conv(w=3, h=3, n=512)
   BatchNorm
-  ReLU
 }
+ReLU
 
 Assert(w=7, h=7, d=512)
 
