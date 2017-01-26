@@ -34,6 +34,8 @@ Residual {
   ReLU
 }
 
+Assert(w=28, h=28, d=128)
+
 Residual {
   Projection {
     Conv(w=1, h=1, n=256, sx=2, sy=2)
@@ -49,6 +51,8 @@ Residual {
   BatchNorm
   ReLU
 }
+
+Assert(w=14, h=14, d=256)
 
 Residual {
   Projection {
@@ -66,6 +70,8 @@ Residual {
   ReLU
 }
 
-MaxPool(w=7, h=7)
+Assert(w=7, h=7, d=512)
+
+MeanPool(w=7, h=7)
 FC(out=1000)
 Softmax
