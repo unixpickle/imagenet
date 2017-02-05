@@ -4,6 +4,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"math/rand"
 	"os"
 
 	"github.com/unixpickle/anyvec"
@@ -15,7 +16,7 @@ const InputImageSize = 224
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
-func TrainingImage(path string) anyvec.Vector {
+func TrainingImage(center bool, path string) anyvec.Vector {
 	f, err := os.Open(path)
 	if err != nil {
 		panic("could not read training image: " + path)
@@ -35,6 +36,13 @@ func TrainingImage(path string) anyvec.Vector {
 
 	cropX := (newImage.Bounds().Dx() - InputImageSize) / 2
 	cropY := (newImage.Bounds().Dy() - InputImageSize) / 2
+	if !center {
+		if newImage.Bounds().Dx() > newImage.Bounds().Dy() {
+			cropX = rand.Intn(newImage.Bounds().Dx() - newImage.Bounds().Dy())
+		} else if newImage.Bounds().Dx() < newImage.Bounds().Dy() {
+			cropY = rand.Intn(newImage.Bounds().Dy() - newImage.Bounds().Dx())
+		}
+	}
 
 	resSlice := make([]float32, InputImageSize*InputImageSize*3)
 	for y := 0; y < InputImageSize; y++ {

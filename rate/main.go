@@ -57,7 +57,7 @@ func main() {
 	sampleChan := make(chan *anyff.Sample, 1)
 	go func() {
 		for i := 0; i < samples.Len(); i++ {
-			sampleChan <- samples.GetSample(i)
+			sampleChan <- samples.GetCenteredSample(i)
 		}
 		close(sampleChan)
 	}()
