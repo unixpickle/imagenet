@@ -12,7 +12,11 @@ import (
 	"github.com/unixpickle/resize"
 )
 
-const InputImageSize = 224
+const (
+	InputImageSize   = 224
+	MinAugmentedSize = 256
+	MaxAugmentedSize = 480
+)
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
@@ -26,6 +30,49 @@ func TrainingImage(center bool, path string) anyvec.Vector {
 	if err != nil {
 		panic("could not decode training image: " + path)
 	}
+	if center {
+		img = centeredImage(img)
+	} else {
+		img = augmentedImage(img)
+	}
+
+	resSlice := make([]float32, InputImageSize*InputImageSize*3)
+	for y := 0; y < InputImageSize; y++ {
+		for x := 0; x < InputImageSize; x++ {
+			pixel := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
+			idx := (y*InputImageSize + x) * 3
+			r, g, b, _ := pixel.RGBA()
+			resSlice[idx] = float32(r) / 0xffff
+			resSlice[idx+1] = float32(g) / 0xffff
+			resSlice[idx+2] = float32(b) / 0xffff
+		}
+	}
+
+	return anyvec32.MakeVectorData(resSlice)
+}
+
+func augmentedImage(img image.Image) image.Image {
+	smallerDim := img.Bounds().Dx()
+	if img.Bounds().Dy() < smallerDim {
+		smallerDim = img.Bounds().Dy()
+	}
+
+	// Scale augmentation
+	newSize := rand.Intn(MaxAugmentedSize-MinAugmentedSize+1) + MinAugmentedSize
+	scale := float64(newSize) / float64(smallerDim)
+	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
+		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
+
+	if rand.Intn(2) == 0 {
+		newImage = mirrorImage(newImage)
+	}
+
+	cropX := rand.Intn(newImage.Bounds().Dx() - InputImageSize + 1)
+	cropY := rand.Intn(newImage.Bounds().Dy() - InputImageSize + 1)
+	return crop(newImage, cropX, cropY)
+}
+
+func centeredImage(img image.Image) image.Image {
 	smallerDim := img.Bounds().Dx()
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
@@ -36,26 +83,27 @@ func TrainingImage(center bool, path string) anyvec.Vector {
 
 	cropX := (newImage.Bounds().Dx() - InputImageSize) / 2
 	cropY := (newImage.Bounds().Dy() - InputImageSize) / 2
-	if !center {
-		if newImage.Bounds().Dx() > newImage.Bounds().Dy() {
-			cropX = rand.Intn(newImage.Bounds().Dx() - newImage.Bounds().Dy())
-		} else if newImage.Bounds().Dx() < newImage.Bounds().Dy() {
-			cropY = rand.Intn(newImage.Bounds().Dy() - newImage.Bounds().Dx())
+	return crop(img, cropX, cropY)
+}
+
+func crop(img image.Image, x, y int) image.Image {
+	res := image.NewRGBA(image.Rect(0, 0, InputImageSize, InputImageSize))
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			c := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
+			res.Set(x, y, c)
 		}
 	}
+	return res
+}
 
-	resSlice := make([]float32, InputImageSize*InputImageSize*3)
-	for y := 0; y < InputImageSize; y++ {
-		for x := 0; x < InputImageSize; x++ {
-			pixel := newImage.At(x+newImage.Bounds().Min.X+cropX,
-				y+newImage.Bounds().Min.Y+cropY)
-			idx := (y*InputImageSize + x) * 3
-			r, g, b, _ := pixel.RGBA()
-			resSlice[idx] = float32(r) / 0xffff
-			resSlice[idx+1] = float32(g) / 0xffff
-			resSlice[idx+2] = float32(b) / 0xffff
+func mirrorImage(img image.Image) image.Image {
+	res := image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			c := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
+			res.Set(img.Bounds().Dx()-(x+1), y, c)
 		}
 	}
-
-	return anyvec32.MakeVectorData(resSlice)
+	return res
 }
