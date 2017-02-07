@@ -20,7 +20,7 @@ const (
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
-func TrainingImage(center bool, path string) anyvec.Vector {
+func TrainingImage(noAugment bool, path string) anyvec.Vector {
 	f, err := os.Open(path)
 	if err != nil {
 		panic("could not read training image: " + path)
@@ -30,7 +30,7 @@ func TrainingImage(center bool, path string) anyvec.Vector {
 	if err != nil {
 		panic("could not decode training image: " + path)
 	}
-	if center {
+	if noAugment {
 		img = centeredImage(img)
 	} else {
 		img = augmentedImage(img)
@@ -46,6 +46,10 @@ func TrainingImage(center bool, path string) anyvec.Vector {
 			resSlice[idx+1] = float32(g) / 0xffff
 			resSlice[idx+2] = float32(b) / 0xffff
 		}
+	}
+
+	if !noAugment {
+		colorAugment(resSlice)
 	}
 
 	return anyvec32.MakeVectorData(resSlice)
@@ -106,4 +110,15 @@ func mirrorImage(img image.Image) image.Image {
 		}
 	}
 	return res
+}
+
+func colorAugment(t []float32) {
+	amount := float32(rand.NormFloat64())
+
+	// Vector from https://groups.google.com/forum/#!topic/lasagne-users/meCDNeA9Ud4.
+	vec := []float32{0.0148366, 0.01253134, 0.01040762}
+
+	for i := 0; i < len(t); i++ {
+		t[i] += vec[i%3] * amount
+	}
 }
