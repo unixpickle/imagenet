@@ -83,11 +83,14 @@ func (s SampleList) Slice(start, end int) anysgd.SampleList {
 }
 
 func (s SampleList) GetSample(idx int) *anyff.Sample {
-	return s.getSample(false, idx)
-}
-
-func (s SampleList) GetCenteredSample(idx int) *anyff.Sample {
-	return s.getSample(true, idx)
+	outVec := make([]float64, s[idx].ClassCount)
+	outVec[s[idx].Class] = 1
+	in := TrainingImage(s[idx].Path)
+	sample := &anyff.Sample{
+		Input:  in,
+		Output: in.Creator().MakeVectorData(in.Creator().MakeNumericList(outVec)),
+	}
+	return sample
 }
 
 // Hash returns the hash of the given sample's base
@@ -96,15 +99,4 @@ func (s SampleList) Hash(idx int) []byte {
 	name := filepath.Base(s[idx].Path)
 	hash := md5.Sum([]byte(name))
 	return hash[:]
-}
-
-func (s SampleList) getSample(center bool, idx int) *anyff.Sample {
-	outVec := make([]float64, s[idx].ClassCount)
-	outVec[s[idx].Class] = 1
-	in := TrainingImage(center, s[idx].Path)
-	sample := &anyff.Sample{
-		Input:  in,
-		Output: in.Creator().MakeVectorData(in.Creator().MakeNumericList(outVec)),
-	}
-	return sample
 }

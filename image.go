@@ -20,21 +20,12 @@ const (
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
-//
-// If noAugment is true, the image is centered and no data
-// augmentation techniques are applied to it.
-func TrainingImage(noAugment bool, path string) anyvec.Vector {
-	img := readImage(path)
-	if noAugment {
-		img = centeredImage(img)
-	} else {
-		img = augmentedImage(img)
-	}
-
+// It performs various manipulations to the image for the
+// purpose of data augmentation.
+func TrainingImage(path string) anyvec.Vector {
+	img := augmentedImage(readImage(path))
 	resSlice := imageToTensor(img)
-	if !noAugment {
-		colorAugment(resSlice)
-	}
+	colorAugment(resSlice)
 	return anyvec32.MakeVectorData(resSlice)
 }
 
@@ -46,15 +37,22 @@ func TestingImages(path string) []anyvec.Vector {
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
 	}
-	scale := InputImageSize / float64(smallerDim)
+	scale := MinAugmentedSize / float64(smallerDim)
 	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
 		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
 	images := []image.Image{
+		// Top left
 		crop(newImage, 0, 0),
+		// Center
 		crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
 			(newImage.Bounds().Dy()-InputImageSize)/2),
+		// Bottom right
 		crop(newImage, newImage.Bounds().Dx()-InputImageSize,
 			newImage.Bounds().Dy()-InputImageSize),
+		// Bottom left
+		crop(newImage, 0, newImage.Bounds().Dy()-InputImageSize),
+		// Top right
+		crop(newImage, newImage.Bounds().Dx()-InputImageSize, 0),
 	}
 	var res []anyvec.Vector
 	for _, x := range images {
@@ -110,20 +108,6 @@ func augmentedImage(img image.Image) image.Image {
 	cropX := rand.Intn(newImage.Bounds().Dx() - InputImageSize + 1)
 	cropY := rand.Intn(newImage.Bounds().Dy() - InputImageSize + 1)
 	return crop(newImage, cropX, cropY)
-}
-
-func centeredImage(img image.Image) image.Image {
-	smallerDim := img.Bounds().Dx()
-	if img.Bounds().Dy() < smallerDim {
-		smallerDim = img.Bounds().Dy()
-	}
-	scale := InputImageSize / float64(smallerDim)
-	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
-		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
-
-	cropX := (newImage.Bounds().Dx() - InputImageSize) / 2
-	cropY := (newImage.Bounds().Dy() - InputImageSize) / 2
-	return crop(img, cropX, cropY)
 }
 
 func crop(img image.Image, x, y int) image.Image {
