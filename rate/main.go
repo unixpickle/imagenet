@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/unixpickle/anydiff"
-	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
 	"github.com/unixpickle/anyvec"
 	"github.com/unixpickle/imagenet"
@@ -54,10 +53,10 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	anysgd.Shuffle(samples)
 
-	sampleChan := make(chan *anyff.Sample, 1)
+	sampleChan := make(chan *imagenet.Sample, 1)
 	go func() {
 		for i := 0; i < samples.Len(); i++ {
-			sampleChan <- samples.GetCenteredSample(i)
+			sampleChan <- &samples[i]
 		}
 		close(sampleChan)
 	}()
@@ -72,17 +71,25 @@ func main() {
 	printResults(outChan)
 }
 
-func rateSamples(n int, c *imagenet.Classifier, samples <-chan *anyff.Sample,
+func rateSamples(n int, c *imagenet.Classifier, samples <-chan *imagenet.Sample,
 	out chan<- bool) {
 	for sample := range samples {
-		res := c.Net.Apply(anydiff.NewConst(sample.Input), 1).Output()
+		ins := imagenet.TestingImages(sample.Path)
+		var outSum anyvec.Vector
+		for _, x := range ins {
+			res := c.Net.Apply(anydiff.NewConst(x), 1).Output()
+			if outSum == nil {
+				outSum = res.Copy()
+			} else {
+				outSum.Add(res)
+			}
+		}
 
-		topClasses := sortByIndex(res.Data().([]float32))
-		class := anyvec.MaxIndex(sample.Output)
+		topClasses := sortByIndex(outSum.Data().([]float32))
 
 		var gotIt bool
 		for i := 0; i < n; i++ {
-			if topClasses[i] == class {
+			if topClasses[i] == sample.Class {
 				gotIt = true
 				break
 			}

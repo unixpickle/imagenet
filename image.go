@@ -20,7 +20,50 @@ const (
 
 // TrainingImage loads the image at the given path and
 // transforms it into tensor data.
+//
+// If noAugment is true, the image is centered and no data
+// augmentation techniques are applied to it.
 func TrainingImage(noAugment bool, path string) anyvec.Vector {
+	img := readImage(path)
+	if noAugment {
+		img = centeredImage(img)
+	} else {
+		img = augmentedImage(img)
+	}
+
+	resSlice := imageToTensor(img)
+	if !noAugment {
+		colorAugment(resSlice)
+	}
+	return anyvec32.MakeVectorData(resSlice)
+}
+
+// TestingImages produces tensors for different crops of
+// the image.
+func TestingImages(path string) []anyvec.Vector {
+	img := readImage(path)
+	smallerDim := img.Bounds().Dx()
+	if img.Bounds().Dy() < smallerDim {
+		smallerDim = img.Bounds().Dy()
+	}
+	scale := InputImageSize / float64(smallerDim)
+	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
+		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
+	images := []image.Image{
+		crop(newImage, 0, 0),
+		crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
+			(newImage.Bounds().Dy()-InputImageSize)/2),
+		crop(newImage, newImage.Bounds().Dx()-InputImageSize,
+			newImage.Bounds().Dy()-InputImageSize),
+	}
+	var res []anyvec.Vector
+	for _, x := range images {
+		res = append(res, anyvec32.MakeVectorData(imageToTensor(x)))
+	}
+	return res
+}
+
+func readImage(path string) image.Image {
 	f, err := os.Open(path)
 	if err != nil {
 		panic("could not read training image: " + path)
@@ -30,12 +73,10 @@ func TrainingImage(noAugment bool, path string) anyvec.Vector {
 	if err != nil {
 		panic("could not decode training image: " + path)
 	}
-	if noAugment {
-		img = centeredImage(img)
-	} else {
-		img = augmentedImage(img)
-	}
+	return img
+}
 
+func imageToTensor(img image.Image) []float32 {
 	resSlice := make([]float32, InputImageSize*InputImageSize*3)
 	for y := 0; y < InputImageSize; y++ {
 		for x := 0; x < InputImageSize; x++ {
@@ -47,12 +88,7 @@ func TrainingImage(noAugment bool, path string) anyvec.Vector {
 			resSlice[idx+2] = float32(b) / 0xffff
 		}
 	}
-
-	if !noAugment {
-		colorAugment(resSlice)
-	}
-
-	return anyvec32.MakeVectorData(resSlice)
+	return resSlice
 }
 
 func augmentedImage(img image.Image) image.Image {
