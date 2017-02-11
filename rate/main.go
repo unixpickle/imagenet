@@ -12,6 +12,7 @@ import (
 	"github.com/unixpickle/anydiff"
 	"github.com/unixpickle/anynet/anysgd"
 	"github.com/unixpickle/anyvec"
+	"github.com/unixpickle/essentials"
 	"github.com/unixpickle/imagenet"
 	"github.com/unixpickle/serializer"
 
@@ -74,7 +75,10 @@ func main() {
 func rateSamples(n int, c *imagenet.Classifier, samples <-chan *imagenet.Sample,
 	out chan<- bool) {
 	for sample := range samples {
-		ins := imagenet.TestingImages(sample.Path)
+		ins, err := imagenet.TestingImages(sample.Path)
+		if err != nil {
+			essentials.Die(err)
+		}
 		var outSum anyvec.Vector
 		for _, x := range ins {
 			res := c.Net.Apply(anydiff.NewConst(x), 1).Output()

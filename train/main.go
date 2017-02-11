@@ -96,7 +96,10 @@ func main() {
 	}
 
 	log.Println("Press ctrl+c once to stop...")
-	s.Run(rip.NewRIP().Chan())
+	err = s.Run(rip.NewRIP().Chan())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Training error:", err)
+	}
 
 	if err := serializer.SaveAny(outNet, network); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to save network:", err)

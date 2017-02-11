@@ -10,6 +10,7 @@ import (
 
 	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
+	"github.com/unixpickle/essentials"
 )
 
 // A Sample stores the metadata for a training image.
@@ -82,15 +83,18 @@ func (s SampleList) Slice(start, end int) anysgd.SampleList {
 	return append(SampleList{}, s[start:end]...)
 }
 
-func (s SampleList) GetSample(idx int) *anyff.Sample {
+func (s SampleList) GetSample(idx int) (*anyff.Sample, error) {
 	outVec := make([]float64, s[idx].ClassCount)
 	outVec[s[idx].Class] = 1
-	in := TrainingImage(s[idx].Path)
+	in, err := TrainingImage(s[idx].Path)
+	if err != nil {
+		return nil, essentials.AddCtx("get sample", err)
+	}
 	sample := &anyff.Sample{
 		Input:  in,
 		Output: in.Creator().MakeVectorData(in.Creator().MakeNumericList(outVec)),
 	}
-	return sample
+	return sample, nil
 }
 
 // Hash returns the hash of the given sample's base

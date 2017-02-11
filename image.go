@@ -9,6 +9,7 @@ import (
 
 	"github.com/unixpickle/anyvec"
 	"github.com/unixpickle/anyvec/anyvec32"
+	"github.com/unixpickle/essentials"
 	"github.com/unixpickle/resize"
 )
 
@@ -22,17 +23,24 @@ const (
 // transforms it into tensor data.
 // It performs various manipulations to the image for the
 // purpose of data augmentation.
-func TrainingImage(path string) anyvec.Vector {
-	img := augmentedImage(readImage(path))
+func TrainingImage(path string) (anyvec.Vector, error) {
+	orig, err := readImage(path)
+	if err != nil {
+		return nil, essentials.AddCtx("load training image:", err)
+	}
+	img := augmentedImage(orig)
 	resSlice := imageToTensor(img)
 	colorAugment(resSlice)
-	return anyvec32.MakeVectorData(resSlice)
+	return anyvec32.MakeVectorData(resSlice), nil
 }
 
 // TestingImages produces tensors for different crops of
 // the image.
-func TestingImages(path string) []anyvec.Vector {
-	img := readImage(path)
+func TestingImages(path string) ([]anyvec.Vector, error) {
+	img, err := readImage(path)
+	if err != nil {
+		return nil, essentials.AddCtx("load testing images:", err)
+	}
 	smallerDim := img.Bounds().Dx()
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
@@ -58,20 +66,20 @@ func TestingImages(path string) []anyvec.Vector {
 	for _, x := range images {
 		res = append(res, anyvec32.MakeVectorData(imageToTensor(x)))
 	}
-	return res
+	return res, nil
 }
 
-func readImage(path string) image.Image {
+func readImage(path string) (image.Image, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		panic("could not read training image: " + path)
+		return nil, err
 	}
 	defer f.Close()
 	img, _, err := image.Decode(f)
 	if err != nil {
-		panic("could not decode training image: " + path)
+		return nil, err
 	}
-	return img
+	return img, nil
 }
 
 func imageToTensor(img image.Image) []float32 {
