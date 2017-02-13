@@ -70,11 +70,16 @@ func main() {
 	}
 
 	log.Println("Replacing BatchNorm layers...")
+	var numReplaced int
 	pt := &anyconv.PostTrainer{
 		Samples:   samples,
 		Fetcher:   &anyff.Trainer{},
 		BatchSize: batchSize,
 		Net:       net,
+		StatusFunc: func(bn *anyconv.BatchNorm) {
+			numReplaced++
+			log.Println("Replaced", numReplaced, "BatchNorms.")
+		},
 	}
 	if err = pt.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "Post-training error:", err)
