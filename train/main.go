@@ -26,6 +26,7 @@ func main() {
 	var stepSize float64
 	var batchSize int
 	var validationSize float64
+	var weightDecay float64
 	var logInterval int
 	var modelFile string
 
@@ -34,6 +35,7 @@ func main() {
 	flag.Float64Var(&stepSize, "step", 0.001, "step size")
 	flag.IntVar(&batchSize, "batch", 12, "batch size")
 	flag.Float64Var(&validationSize, "validation", 0.1, "validation fraction")
+	flag.Float64Var(&weightDecay, "decay", 1e-4, "L2 weight decay")
 	flag.IntVar(&logInterval, "logint", 4, "validation log interval")
 	flag.StringVar(&modelFile, "model", "models/orig.txt", "model markup file")
 
@@ -68,8 +70,12 @@ func main() {
 	log.Println("Loaded", validation.Len(), "validation,", training.Len(), "training.")
 
 	t := &anyff.Trainer{
-		Net:     network,
-		Cost:    anynet.DotCost{},
+		Net: network,
+		Cost: &anynet.L2Reg{
+			Penalty: weightDecay,
+			Params:  network.Parameters(),
+			Wrapped: anynet.DotCost{},
+		},
 		Params:  network.Parameters(),
 		Average: true,
 	}
