@@ -12,6 +12,7 @@ import (
 	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
 	"github.com/unixpickle/anyvec"
+	"github.com/unixpickle/essentials"
 	"github.com/unixpickle/imagenet"
 	"github.com/unixpickle/rip"
 	"github.com/unixpickle/serializer"
@@ -73,6 +74,19 @@ func main() {
 		Average: true,
 	}
 
+	vBatches := make(chan anysgd.Batch, 1)
+	go func() {
+		for {
+			anysgd.Shuffle(validation)
+			valid := validation.Slice(0, batchSize)
+			batch, err := t.Fetch(valid)
+			if err != nil {
+				essentials.Die(err)
+			}
+			vBatches <- batch
+		}
+	}()
+
 	var iterNum int
 	s := &anysgd.SGD{
 		Fetcher:     t,
@@ -84,9 +98,7 @@ func main() {
 			if iterNum%logInterval != 1 {
 				log.Printf("iter %d: cost=%v", iterNum, t.LastCost)
 			} else {
-				anysgd.Shuffle(validation)
-				valid := validation.Slice(0, batchSize)
-				batch, _ := t.Fetch(valid)
+				batch := <-vBatches
 				vCost := anyvec.Sum(t.TotalCost(batch.(*anyff.Batch)).Output())
 				log.Printf("iter %d: cost=%v validation=%v", iterNum, vCost, t.LastCost)
 			}
