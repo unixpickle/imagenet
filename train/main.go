@@ -49,11 +49,13 @@ func main() {
 	}
 
 	log.Println("Loading/creating network...")
-	network, err := LoadOrCreateNetwork(outNet, modelFile)
+	classifier, err := LoadOrCreateClassifier(outNet, modelFile, imageDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to create network:", err)
 		os.Exit(1)
 	}
+	network := classifier.Net
+
 	paramCount := 0
 	for _, p := range network.Parameters() {
 		paramCount += p.Vector.Len()
@@ -119,7 +121,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Training error:", err)
 	}
 
-	if err := serializer.SaveAny(outNet, network); err != nil {
+	if err := serializer.SaveAny(outNet, classifier); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to save network:", err)
 		os.Exit(1)
 	}

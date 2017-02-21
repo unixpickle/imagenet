@@ -7,14 +7,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
-	"sort"
 	"time"
 
-	"github.com/unixpickle/anynet"
 	"github.com/unixpickle/anynet/anyconv"
 	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
@@ -46,11 +43,6 @@ func main() {
 	}
 
 	log.Println("Loading samples...")
-	classes, err := folderNames(imgDir)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to read classes:", err)
-		os.Exit(1)
-	}
 	samples, err := imagenet.NewSampleList(imgDir)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read sample listing:", err)
@@ -63,8 +55,8 @@ func main() {
 	}
 
 	log.Println("Loading network...")
-	var net anynet.Net
-	if err = serializer.LoadAny(inNet, &net); err != nil {
+	var cl *imagenet.Classifier
+	if err = serializer.LoadAny(inNet, &cl); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to read network:", err)
 		os.Exit(1)
 	}
@@ -75,7 +67,7 @@ func main() {
 		Samples:   samples,
 		Fetcher:   &anyff.Trainer{},
 		BatchSize: batchSize,
-		Net:       net,
+		Net:       cl.Net,
 		StatusFunc: func(bn *anyconv.BatchNorm) {
 			numReplaced++
 			log.Println("Replaced", numReplaced, "BatchNorms.")
@@ -87,30 +79,8 @@ func main() {
 	}
 
 	log.Println("Saving classifier...")
-	cl := &imagenet.Classifier{
-		InWidth:  imagenet.InputImageSize,
-		InHeight: imagenet.InputImageSize,
-		Net:      net,
-		Classes:  classes,
-	}
-
 	if err = serializer.SaveAny(outNet, cl); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to save:", err)
 		os.Exit(1)
 	}
-}
-
-func folderNames(sampleDir string) ([]string, error) {
-	listing, err := ioutil.ReadDir(sampleDir)
-	if err != nil {
-		return nil, err
-	}
-	var classes []string
-	for _, x := range listing {
-		if x.IsDir() {
-			classes = append(classes, x.Name())
-		}
-	}
-	sort.Strings(classes)
-	return classes, nil
 }
