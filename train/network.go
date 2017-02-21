@@ -17,6 +17,11 @@ func LoadOrCreateClassifier(path, modelPath, samplePath string) (*imagenet.Class
 		return turnIntoClassifier(net, samplePath)
 	}
 
+	var cl *imagenet.Classifier
+	if err := serializer.LoadAny(path, &cl); err == nil {
+		return cl, nil
+	}
+
 	modelData, err := ioutil.ReadFile(modelPath)
 	if err != nil {
 		return nil, err
