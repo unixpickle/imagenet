@@ -27,6 +27,7 @@ func main() {
 	var batchSize int
 	var validationSize float64
 	var weightDecay float64
+	var momentum float64
 	var logInterval int
 	var modelFile string
 
@@ -36,6 +37,7 @@ func main() {
 	flag.IntVar(&batchSize, "batch", 12, "batch size")
 	flag.Float64Var(&validationSize, "validation", 0.1, "validation fraction")
 	flag.Float64Var(&weightDecay, "decay", 1e-4, "L2 weight decay")
+	flag.Float64Var(&momentum, "momentum", 0, "SGD momentum (disables Adam)")
 	flag.IntVar(&logInterval, "logint", 4, "validation log interval")
 	flag.StringVar(&modelFile, "model", "models/orig.txt", "model markup file")
 
@@ -113,6 +115,9 @@ func main() {
 			iterNum++
 		},
 		BatchSize: batchSize,
+	}
+	if momentum != 0 {
+		s.Transformer = &anysgd.Momentum{Momentum: momentum}
 	}
 
 	log.Println("Press ctrl+c once to stop...")
