@@ -81,7 +81,7 @@ func rateSamples(n int, c *imagenet.Classifier, samples <-chan *imagenet.Sample,
 		}
 		var outSum anyvec.Vector
 		for _, x := range ins {
-			res := c.Net.Apply(anydiff.NewConst(x), 1).Output()
+			res := anydiff.Exp(c.Net.Apply(anydiff.NewConst(x), 1)).Output()
 			if outSum == nil {
 				outSum = res.Copy()
 			} else {
