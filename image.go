@@ -45,22 +45,25 @@ func TestingImages(path string) ([]anyvec.Vector, error) {
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
 	}
-	scale := MinAugmentedSize / float64(smallerDim)
-	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
-		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
-	images := []image.Image{
-		// Top left
-		crop(newImage, 0, 0),
-		// Center
-		crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
-			(newImage.Bounds().Dy()-InputImageSize)/2),
-		// Bottom right
-		crop(newImage, newImage.Bounds().Dx()-InputImageSize,
-			newImage.Bounds().Dy()-InputImageSize),
-		// Bottom left
-		crop(newImage, 0, newImage.Bounds().Dy()-InputImageSize),
-		// Top right
-		crop(newImage, newImage.Bounds().Dx()-InputImageSize, 0),
+	var images []image.Image
+	for _, size := range []float64{224, 256, 384, 480, 640} {
+		scale := size / float64(smallerDim)
+		newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
+			uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
+		images = append(images,
+			// Top left
+			crop(newImage, 0, 0),
+			// Center
+			crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
+				(newImage.Bounds().Dy()-InputImageSize)/2),
+			// Bottom right
+			crop(newImage, newImage.Bounds().Dx()-InputImageSize,
+				newImage.Bounds().Dy()-InputImageSize),
+			// Bottom left
+			crop(newImage, 0, newImage.Bounds().Dy()-InputImageSize),
+			// Top right
+			crop(newImage, newImage.Bounds().Dx()-InputImageSize, 0),
+		)
 	}
 	var res []anyvec.Vector
 	for _, x := range images {
