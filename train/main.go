@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/unixpickle/anynet"
+	"github.com/unixpickle/anynet/anyconv"
 	"github.com/unixpickle/anynet/anyff"
 	"github.com/unixpickle/anynet/anysgd"
 	"github.com/unixpickle/anyvec"
@@ -80,7 +81,7 @@ func main() {
 			Params:  network.Parameters(),
 			Wrapped: anynet.DotCost{},
 		},
-		Params:  network.Parameters(),
+		Params:  anyconv.Weights(network),
 		Average: true,
 	}
 
