@@ -26,6 +26,7 @@ Repeat(n=3) {
 Residual {
   Projection {
     Conv(w=1, h=1, n=128, sx=2, sy=2)
+    BatchNorm
   }
 
   Padding(l=1, r=1, t=1, b=1)
@@ -57,6 +58,7 @@ Repeat(n=3) {
 Residual {
   Projection {
     Conv(w=1, h=1, n=256, sx=2, sy=2)
+    BatchNorm
   }
 
   Padding(l=1, r=1, t=1, b=1)
@@ -88,6 +90,7 @@ Repeat(n=5) {
 Residual {
   Projection {
     Conv(w=1, h=1, n=512, sx=2, sy=2)
+    BatchNorm
   }
 
   Padding(l=1, r=1, t=1, b=1)
