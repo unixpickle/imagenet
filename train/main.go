@@ -124,7 +124,7 @@ func main() {
 	}
 
 	log.Println("Press ctrl+c once to stop...")
-	err = s.Run(rip.NewRIP().Chan())
+	err = s.RunAvg(batchBatch, rip.NewRIP().Chan())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Training error:", err)
 	}
