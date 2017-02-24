@@ -26,6 +26,7 @@ func main() {
 	var outNet string
 	var stepSize float64
 	var batchSize int
+	var batchBatch int
 	var validationSize float64
 	var weightDecay float64
 	var momentum float64
@@ -36,6 +37,7 @@ func main() {
 	flag.StringVar(&outNet, "out", "out_net", "network file")
 	flag.Float64Var(&stepSize, "step", 0.001, "step size")
 	flag.IntVar(&batchSize, "batch", 12, "batch size")
+	flag.IntVar(&batchBatch, "batchbatch", 1, "mini-batches per SGD step")
 	flag.Float64Var(&validationSize, "validation", 0.1, "validation fraction")
 	flag.Float64Var(&weightDecay, "decay", 1e-4, "L2 weight decay")
 	flag.Float64Var(&momentum, "momentum", 0, "SGD momentum (disables Adam)")
