@@ -29,9 +29,8 @@ func TrainingImage(path string) (anyvec.Vector, error) {
 		return nil, essentials.AddCtx("load training image:", err)
 	}
 	img := augmentedImage(orig)
-	resSlice := imageToTensor(img)
-	colorAugment(resSlice)
-	return anyvec32.MakeVectorData(resSlice), nil
+	colorAugment(img)
+	return anyvec32.MakeVectorData(img), nil
 }
 
 // TestingImages produces tensors for different crops of
@@ -45,29 +44,29 @@ func TestingImages(path string) ([]anyvec.Vector, error) {
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
 	}
-	var images []image.Image
+	var images [][]float32
 	for _, size := range []float64{224, 256, 384, 480, 640} {
 		scale := size / float64(smallerDim)
 		newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
 			uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
 		images = append(images,
 			// Top left
-			crop(newImage, 0, 0),
+			crop(newImage, 0, 0, false),
 			// Center
 			crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
-				(newImage.Bounds().Dy()-InputImageSize)/2),
+				(newImage.Bounds().Dy()-InputImageSize)/2, false),
 			// Bottom right
 			crop(newImage, newImage.Bounds().Dx()-InputImageSize,
-				newImage.Bounds().Dy()-InputImageSize),
+				newImage.Bounds().Dy()-InputImageSize, false),
 			// Bottom left
-			crop(newImage, 0, newImage.Bounds().Dy()-InputImageSize),
+			crop(newImage, 0, newImage.Bounds().Dy()-InputImageSize, false),
 			// Top right
-			crop(newImage, newImage.Bounds().Dx()-InputImageSize, 0),
+			crop(newImage, newImage.Bounds().Dx()-InputImageSize, 0, false),
 		)
 	}
 	var res []anyvec.Vector
 	for _, x := range images {
-		res = append(res, anyvec32.MakeVectorData(imageToTensor(x)))
+		res = append(res, anyvec32.MakeVectorData(x))
 	}
 	return res, nil
 }
@@ -85,22 +84,7 @@ func readImage(path string) (image.Image, error) {
 	return img, nil
 }
 
-func imageToTensor(img image.Image) []float32 {
-	resSlice := make([]float32, InputImageSize*InputImageSize*3)
-	for y := 0; y < InputImageSize; y++ {
-		for x := 0; x < InputImageSize; x++ {
-			pixel := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
-			idx := (y*InputImageSize + x) * 3
-			r, g, b, _ := pixel.RGBA()
-			resSlice[idx] = float32(r) / 0xffff
-			resSlice[idx+1] = float32(g) / 0xffff
-			resSlice[idx+2] = float32(b) / 0xffff
-		}
-	}
-	return resSlice
-}
-
-func augmentedImage(img image.Image) image.Image {
+func augmentedImage(img image.Image) []float32 {
 	smallerDim := img.Bounds().Dx()
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
@@ -112,35 +96,26 @@ func augmentedImage(img image.Image) image.Image {
 	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
 		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
 
-	if rand.Intn(2) == 0 {
-		newImage = mirrorImage(newImage)
-	}
-
 	cropX := rand.Intn(newImage.Bounds().Dx() - InputImageSize + 1)
 	cropY := rand.Intn(newImage.Bounds().Dy() - InputImageSize + 1)
-	return crop(newImage, cropX, cropY)
+	return crop(newImage, cropX, cropY, rand.Intn(2) == 1)
 }
 
-func crop(img image.Image, cropX, cropY int) image.Image {
-	res := image.NewRGBA(image.Rect(0, 0, InputImageSize, InputImageSize))
+func crop(img image.Image, cropX, cropY int, mirror bool) []float32 {
+	resSlice := make([]float32, 0, InputImageSize*InputImageSize*3)
 	for y := 0; y < InputImageSize; y++ {
 		for x := 0; x < InputImageSize; x++ {
-			c := img.At(cropX+x+img.Bounds().Min.X, cropY+y+img.Bounds().Min.Y)
-			res.Set(x, y, c)
+			sourceX := x
+			if mirror {
+				sourceX = InputImageSize - (x + 1)
+			}
+			c := img.At(cropX+sourceX+img.Bounds().Min.X, cropY+y+img.Bounds().Min.Y)
+			r, g, b, _ := c.RGBA()
+			resSlice = append(resSlice, float32(r)/0xffff, float32(g)/0xffff,
+				float32(b)/0xffff)
 		}
 	}
-	return res
-}
-
-func mirrorImage(img image.Image) image.Image {
-	res := image.NewRGBA(image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy()))
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			c := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
-			res.Set(img.Bounds().Dx()-(x+1), y, c)
-		}
-	}
-	return res
+	return resSlice
 }
 
 func colorAugment(t []float32) {
