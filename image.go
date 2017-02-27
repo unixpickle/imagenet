@@ -121,11 +121,11 @@ func augmentedImage(img image.Image) image.Image {
 	return crop(newImage, cropX, cropY)
 }
 
-func crop(img image.Image, x, y int) image.Image {
+func crop(img image.Image, cropX, cropY int) image.Image {
 	res := image.NewRGBA(image.Rect(0, 0, InputImageSize, InputImageSize))
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			c := img.At(x+img.Bounds().Min.X, y+img.Bounds().Min.Y)
+	for y := 0; y < InputImageSize; y++ {
+		for x := 0; x < InputImageSize; x++ {
+			c := img.At(cropX+x+img.Bounds().Min.X, cropY+y+img.Bounds().Min.Y)
 			res.Set(x, y, c)
 		}
 	}
