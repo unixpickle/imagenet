@@ -2,6 +2,7 @@ package imagenet
 
 import (
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
 	"math/rand"
@@ -69,6 +70,27 @@ func TestingImages(path string) ([]anyvec.Vector, error) {
 		res = append(res, anyvec32.MakeVectorData(x))
 	}
 	return res, nil
+}
+
+// TensorToImage converts a tensor to an image.
+func TensorToImage(tensor anyvec.Vector) image.Image {
+	data := tensor.Data().([]float32)
+	res := image.NewRGBA(image.Rect(0, 0, InputImageSize, InputImageSize))
+	for y := 0; y < res.Bounds().Dy(); y++ {
+		for x := 0; x < res.Bounds().Dx(); x++ {
+			idx := 3 * (x + y*res.Bounds().Dx())
+			red := uint8(data[idx]*0xff + 0.5)
+			green := uint8(data[idx+1]*0xff + 0.5)
+			blue := uint8(data[idx+2]*0xff + 0.5)
+			res.SetRGBA(x, y, color.RGBA{
+				R: red,
+				G: green,
+				B: blue,
+				A: 0xff,
+			})
+		}
+	}
+	return res
 }
 
 func readImage(path string) (image.Image, error) {
