@@ -6,6 +6,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/unixpickle/anydiff"
 	"github.com/unixpickle/anyvec"
@@ -42,14 +43,16 @@ func main() {
 		if centerOnly {
 			img, err := imagenet.TestingCenterImage(path)
 			if err != nil {
-				essentials.Die(err)
+				fmt.Fprintln(os.Stderr, err)
+				continue
 			}
 			croppings = []anyvec.Vector{img}
 		} else {
 			var err error
 			croppings, err = imagenet.TestingImages(path)
 			if err != nil {
-				essentials.Die(err)
+				fmt.Fprintln(os.Stderr, err)
+				continue
 			}
 		}
 
