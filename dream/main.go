@@ -45,12 +45,10 @@ func main() {
 	}
 	preLayers := net.Net[:layer]
 
-	tensors, err := imagenet.TestingImages(imagePath)
+	tensor, err := imagenet.TestingCenterImage(imagePath)
 	if err != nil {
 		essentials.Die(err)
 	}
-	// Take the center crop.
-	tensor := tensors[1]
 
 	log.Println("Press ctrl+c to finish...")
 	params := anydiff.NewVar(inverseSigmoid(tensor))
