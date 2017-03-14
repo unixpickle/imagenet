@@ -29,7 +29,7 @@ If you do not want to train your own ImageNet classifier, you can download a pre
 
 # Fetching
 
-To download ImageNet images, you can use the [fetch](fetch) tool. You should create a directory where you would like to save the downloaded images (e.g. `/path/to/images`). You should have a text file with one line per WordNet ID (WNID), such as [wnids/ilsvrc.txt](wnids/ilsvrc.txt). You should also decide the maximum number of images you'd like to download for each WNID. If you want to download everything, you can set this to a large number (e.g. 100000).
+To download ImageNet images, you can use the [fetch](fetch) tool. You should create a directory where you would like to save the downloaded images (e.g. `/path/to/images`). You should have a text file with one line per WordNet ID (WNID), such as [wnids/ilsvrc_2010.txt](wnids/ilsvrc_2010.txt). You should also decide the maximum number of images you'd like to download for each WNID. If you want to download everything, you can set this to a large number (e.g. 100000).
 
 To commence a download, run the command like so:
 
