@@ -71,4 +71,4 @@ $ go run *.go -samples /path/to/images \
   -out /path/to/finalized/model
 ```
 
-The `-total` argument specifies how many samples to run through the network for the rolling average. A larger number results in a more accurate model, but post-training will take longer.
+The `-total` argument specifies how many samples to use for the rolling average. A larger number results in a more accurate model, but post-training will take longer.

@@ -27,7 +27,7 @@ const (
 func TrainingImage(path string) (anyvec.Vector, error) {
 	orig, err := readImage(path)
 	if err != nil {
-		return nil, essentials.AddCtx("load training image:", err)
+		return nil, essentials.AddCtx("read image "+path, err)
 	}
 	img := augmentedImage(orig)
 	colorAugment(img)
@@ -39,7 +39,7 @@ func TrainingImage(path string) (anyvec.Vector, error) {
 func TestingImages(path string) ([]anyvec.Vector, error) {
 	img, err := readImage(path)
 	if err != nil {
-		return nil, essentials.AddCtx("load testing images:", err)
+		return nil, essentials.AddCtx("read image "+path, err)
 	}
 	smallerDim := img.Bounds().Dx()
 	if img.Bounds().Dy() < smallerDim {
@@ -70,6 +70,25 @@ func TestingImages(path string) ([]anyvec.Vector, error) {
 		res = append(res, anyvec32.MakeVectorData(x))
 	}
 	return res, nil
+}
+
+// TestingCenterImage crops the center of the image and
+// returns it as a tensor.
+func TestingCenterImage(path string) (anyvec.Vector, error) {
+	img, err := readImage(path)
+	if err != nil {
+		return nil, essentials.AddCtx("read image "+path, err)
+	}
+	smallerDim := img.Bounds().Dx()
+	if img.Bounds().Dy() < smallerDim {
+		smallerDim = img.Bounds().Dy()
+	}
+	scale := InputImageSize / float64(smallerDim)
+	newImage := resize.Resize(uint(float64(img.Bounds().Dx())*scale+0.5),
+		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
+	slice := crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
+		(newImage.Bounds().Dy()-InputImageSize)/2, false)
+	return anyvec32.MakeVectorData(slice), nil
 }
 
 // TensorToImage converts a tensor to an image.
