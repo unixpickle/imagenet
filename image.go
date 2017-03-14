@@ -79,6 +79,16 @@ func TestingCenterImage(path string) (anyvec.Vector, error) {
 	if err != nil {
 		return nil, essentials.AddCtx("read image "+path, err)
 	}
+	return ImageToTensor(img), nil
+}
+
+// ImageToTensor converts an image to a tensor.
+//
+// The image is scaled and cropped (in the center) so that
+// the output tensor has the right dimensions.
+// If the image is already InputImageSize on both sides,
+// then it is not cropped or scaled.
+func ImageToTensor(img image.Image) anyvec.Vector {
 	smallerDim := img.Bounds().Dx()
 	if img.Bounds().Dy() < smallerDim {
 		smallerDim = img.Bounds().Dy()
@@ -88,7 +98,7 @@ func TestingCenterImage(path string) (anyvec.Vector, error) {
 		uint(float64(img.Bounds().Dy())*scale+0.5), img, resize.Bilinear)
 	slice := crop(newImage, (newImage.Bounds().Dx()-InputImageSize)/2,
 		(newImage.Bounds().Dy()-InputImageSize)/2, false)
-	return anyvec32.MakeVectorData(slice), nil
+	return anyvec32.MakeVectorData(slice)
 }
 
 // TensorToImage converts a tensor to an image.
