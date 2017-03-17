@@ -3,8 +3,11 @@ package imagenet
 import (
 	"encoding/json"
 	"errors"
+	"sort"
 
+	"github.com/unixpickle/anydiff"
 	"github.com/unixpickle/anynet"
+	"github.com/unixpickle/anyvec"
 	"github.com/unixpickle/serializer"
 
 	_ "github.com/unixpickle/anynet/anyconv"
@@ -49,6 +52,32 @@ func DeserializeClassifier(d []byte) (*Classifier, error) {
 	}, nil
 }
 
+// Classify classifies an image and returns a list of
+// classes and their corresponding confidences.
+// The result is sorted most-to-least probable.
+// The input is one or more croppings of the image, such
+// as the croppings returned by TestingImages().
+func (c *Classifier) Classify(versions []anyvec.Vector) ([]string, []float64) {
+	joinedIn := versions[0].Creator().Concat(versions...)
+	out := c.Net.Apply(anydiff.NewConst(joinedIn), len(versions)).Output()
+	anyvec.Exp(out)
+	sum := anyvec.SumRows(out, out.Len()/len(versions))
+	sum.Scale(1 / float32(len(versions)))
+	probs := sum.Data().([]float32)
+
+	sorter := &probSorter{
+		Probs:   probs,
+		Classes: append([]string{}, c.Classes...),
+	}
+	sort.Sort(sorter)
+
+	probs64 := make([]float64, len(sorter.Probs))
+	for i, x := range sorter.Probs {
+		probs64[i] = float64(x)
+	}
+	return sorter.Classes, probs64
+}
+
 // SerializerType returns the unique ID used to serialize
 // a Classifier with the serializer package.
 func (c *Classifier) SerializerType() string {
@@ -73,4 +102,22 @@ type classifierSaver struct {
 	InWidth  int
 	InHeight int
 	Classes  []string
+}
+
+type probSorter struct {
+	Probs   []float32
+	Classes []string
+}
+
+func (p *probSorter) Len() int {
+	return len(p.Probs)
+}
+
+func (p *probSorter) Less(i, j int) bool {
+	return p.Probs[i] > p.Probs[j]
+}
+
+func (p *probSorter) Swap(i, j int) {
+	p.Probs[i], p.Probs[j] = p.Probs[j], p.Probs[i]
+	p.Classes[i], p.Classes[j] = p.Classes[j], p.Classes[i]
 }
