@@ -18,9 +18,11 @@ import (
 func main() {
 	var truncLayers int
 	var centerOnly bool
+	var fiveCrop bool
 
 	flag.IntVar(&truncLayers, "layers", 2, "number of output layers to ignore")
 	flag.BoolVar(&centerOnly, "center", false, "only use one (centered) crop")
+	flag.BoolVar(&fiveCrop, "fivecrop", false, "only use five crops")
 	flag.Parse()
 
 	if len(flag.Args()) < 2 {
@@ -54,13 +56,16 @@ func main() {
 				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
+			if fiveCrop {
+				croppings = croppings[:5]
+			}
 		}
 
 		var sum anyvec.Vector
 		for _, cropping := range croppings {
 			out := net.Apply(anydiff.NewConst(cropping), 1)
 			if sum == nil {
-				sum = out.Output()
+				sum = out.Output().Copy()
 			} else {
 				sum.Add(out.Output())
 			}
